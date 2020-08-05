@@ -30,16 +30,8 @@ class TestZip(unittest.TestCase):
             tmp_dir_obj.mkdir()
 
     def test_should_open(self):
-        return_code = subprocess.call(self.NAME_OF_ZIP_PROGRAM, stdout=subprocess.DEVNULL)
+        return_code = subprocess.call(self.NAME_OF_ZIP_PROGRAM)
         self.assertEqual(0, return_code, 'return code not zero')
-
-    # def test_should_have_keys(self):
-    #     keys = ["-h", "--help"]
-    #     for key in keys:
-    #         with self.subTest(msg=self.NAME_OF_ZIP_PROGRAM + " run with key [" + key + "]"):
-    #             return_code = subprocess.call(self.NAME_OF_ZIP_PROGRAM + " " + key, # stdout=subprocess.DEVNULL
-    #                                           )
-    #             self.assertEqual(0, return_code, 'return code not zero')
 
     # path_..._ (ends with _) it is some Path object
     # path_... (ends not with _) it is string path
@@ -76,8 +68,7 @@ class TestZip(unittest.TestCase):
                                               " -9" + ("" if is_file else " -r") +
                                               " " + object_name_with_zip +
                                               " " + (path_to_object if is_absolute_path else relative_path_from_tmp),
-                                              cwd=path_tmp_dir,
-                                              stdout=subprocess.DEVNULL)
+                                              cwd=path_tmp_dir, shell=True)
 
                 self.assertEqual(0, return_code, 'return code of zip not zero')
 
@@ -93,8 +84,7 @@ class TestZip(unittest.TestCase):
                 with self.subTest(msg="test unzip file: " + object_name_with_zip):
                     return_code = subprocess.call(self.NAME_OF_UNZIP_PROGRAM + " " +
                                                   object_name_with_zip,
-                                                  cwd=path_tmp_dir,
-                                                  stdout=subprocess.DEVNULL)
+                                                  cwd=path_tmp_dir, shell=True)
 
                     self.assertEqual(0, return_code, 'return code of unzip not zero')
 
@@ -122,6 +112,13 @@ class Test7Zip(TestZip):
     COMMAND_TO_ZIP = "a"
     ZIP_ADDITIONAL_SWITCHES = "-tzip"
     COMMAND_TO_UNZIP = "x"
+
+    def test_should_have_keys(self):
+        keys = ["-h", "--help"]
+        for key in keys:
+            with self.subTest(msg=self.NAME_OF_ZIP_PROGRAM + " run with key [" + key + "]"):
+                return_code = subprocess.call(self.NAME_OF_ZIP_PROGRAM + " " + key, stdout=subprocess.DEVNULL)
+                self.assertEqual(0, return_code, 'return code not zero')
 
     # path_..._ (ends with _) it is some Path object
     # path_... (ends not with _) it is string path
