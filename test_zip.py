@@ -30,15 +30,18 @@ class TestZip(unittest.TestCase):
             tmp_dir_obj.mkdir()
 
     def test_should_open(self):
-        return_code = subprocess.call(self.NAME_OF_ZIP_PROGRAM, stdout=subprocess.DEVNULL)
-        self.assertEqual(0, return_code, 'return code not zero')
+        completed_process = subprocess.run([self.NAME_OF_ZIP_PROGRAM],
+                                           stdout=subprocess.DEVNULL,
+                                           stdin=subprocess.DEVNULL)  # Без этой строчки зависает, требуя непонятно чего
+        self.assertEqual(0, completed_process.returncode, 'return code not zero')
 
     def test_should_have_keys(self):
         keys = ["-h", "--help"]
         for key in keys:
             with self.subTest(msg=self.NAME_OF_ZIP_PROGRAM + " run with key [" + key + "]"):
-                return_code = subprocess.call([self.NAME_OF_ZIP_PROGRAM, key], stdout=subprocess.DEVNULL)
-                self.assertEqual(0, return_code, 'return code not zero')
+                completed_process = subprocess.run([self.NAME_OF_ZIP_PROGRAM, key],
+                                                   stdout=subprocess.DEVNULL)
+                self.assertEqual(0, completed_process.returncode, 'return code not zero')
 
     # path_..._ (ends with _) it is some Path object
     # path_... (ends not with _) it is string path
@@ -71,13 +74,17 @@ class TestZip(unittest.TestCase):
                 object_name = path_.parts[-1]
                 object_name_with_zip = object_name + "." + self.EXTENSION_OF_ZIPPED_FILE
 
-                return_code = subprocess.call(self.NAME_OF_ZIP_PROGRAM +
-                                              " -r -j -9 " + object_name_with_zip +
-                                              " " + (path_to_object if is_absolute_path else relative_path_from_tmp),
-                                              cwd=path_tmp_dir, shell=True,
-                                              stdout=subprocess.DEVNULL)
+                args = [self.NAME_OF_ZIP_PROGRAM, "-r", "-j", "-9", object_name_with_zip]
+                if is_absolute_path:
+                    args.append(path_to_object)
+                else:
+                    args.append(relative_path_from_tmp)
 
-                self.assertEqual(0, return_code, 'return code of zip not zero')
+                completed_process = subprocess.run(args,
+                                                   cwd=path_tmp_dir,
+                                                   stdout=subprocess.DEVNULL)
+
+                self.assertEqual(0, completed_process.returncode, 'return code of zip not zero')
 
                 path_to_zipped_file_ = Path(path_tmp_dir + "/" + object_name_with_zip)
 
@@ -89,13 +96,13 @@ class TestZip(unittest.TestCase):
                 self.assertGreater(expected_size, actual_size, 'size of zip file more than original')
 
                 with self.subTest(msg="test unzip file: " + object_name_with_zip):
-                    return_code = subprocess.call(self.NAME_OF_UNZIP_PROGRAM + " " +
-                                                  object_name_with_zip +
-                                                  ("" if is_file else " -d " + object_name),
-                                                  cwd=path_tmp_dir, shell=True,
-                                                  stdout=subprocess.DEVNULL)
-
-                    self.assertEqual(0, return_code, 'return code of unzip not zero')
+                    args = [self.NAME_OF_UNZIP_PROGRAM, object_name_with_zip]
+                    if not is_file:
+                        args.extend(["-d", object_name])
+                    completed_process = subprocess.run(args,
+                                                       cwd=path_tmp_dir,
+                                                       stdout=subprocess.DEVNULL)
+                    self.assertEqual(0, completed_process.returncode, 'return code of unzip not zero')
 
                     path_to_unzipped_object = Path(path_tmp_dir + "/" + object_name).__str__()
 
@@ -114,6 +121,30 @@ class TestZip(unittest.TestCase):
 
                     self.assertEqual(contents_cwd_before, contents_cwd_after,
                                      'contents before zip and unzip not same than after')
+
+    def test_should_zip_file_with_password(self):
+        self.create_tmp_folder()
+        try:
+            path_ = Path(self.FILE_TO_ZIP).absolute()
+            path_tmp_dir = Path(Path(".").absolute().__str__() + "/" + self.TMP_DIR_NAME).__str__()
+
+            object_name = path_.parts[-1]
+            object_name_with_zip = object_name + "." + self.EXTENSION_OF_ZIPPED_FILE
+
+            password = "DSfSDFfsdfdsfdfe32342"
+
+            process = subprocess.run([self.NAME_OF_ZIP_PROGRAM,
+                                      "-P", password,
+                                      "-r", "-j", "-9",
+                                      object_name_with_zip,
+                                      path_.__str__()],
+                                     cwd=path_tmp_dir,
+                                     stdout=subprocess.DEVNULL)
+
+            self.assertEqual(0, process.returncode, 'return code of zip not zero')
+
+        finally:
+            self.delete_tmp_folder()
 
 
 class Test7Zip(TestZip):
@@ -204,14 +235,6 @@ if __name__ == "__main__":
 
     TestToTest = None
     if os.name == "nt":
-        # Здесь была попытка запустить WSL как subprocess, но не вышло((
-        # try:
-        #     return_code = subprocess.call("wsl.exe", shell=True)
-        #     if return_code != 0:
-        #         TestToTest = Test7Zip
-        #     else:
-        #         TestToTest = TestZip
-        # except FileNotFoundError:
         TestToTest = Test7Zip
     elif os.name == "posix":
         TestToTest = TestZip
