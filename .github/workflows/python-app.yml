@@ -3,8 +3,8 @@ name: Python package
 on: [push]
 
 jobs:
-  build:
-
+  build_ubuntu:
+    name: build Ubuntu
     runs-on: ubuntu-latest
 
     steps:
@@ -15,5 +15,17 @@ jobs:
         # Semantic version range syntax or exact version of a Python version
         python-version: '3.8' 
     - name: run tests
-      run: python -m unittest test_zip.TestZip
-  
+      run: python -m unittest -v test_zip.TestZip
+
+  build_windows:
+    name: build Windows
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python 3.8
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.8'
+    - name: Run tests
+      run: python -m unittest -v test_zip.Test7Zip
