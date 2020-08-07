@@ -241,11 +241,11 @@ class Test7Zip(TestZip):
                     else:
                         args.append(relative_path_from_tmp)
 
-                    return_code = subprocess.run(args,
-                                                 cwd=path_tmp_dir,
-                                                 stdout=subprocess.DEVNULL)
+                    completed_process = subprocess.run(args,
+                                                       cwd=path_tmp_dir,
+                                                       stdout=subprocess.DEVNULL)
 
-                    self.assertEqual(0, return_code, 'return code of zip not zero')
+                    self.assertEqual(0, completed_process.returncode, 'return code of zip not zero')
 
                     path_to_zipped_file_ = Path(path_tmp_dir + "/" + object_name_with_zip)
 
@@ -257,13 +257,12 @@ class Test7Zip(TestZip):
                     self.assertGreater(expected_size, actual_size, 'size of zip file more than original')
 
                     with self.subTest(msg="test unzip file: " + object_name_with_zip):
-                        return_code = subprocess.call(self.NAME_OF_ZIP_PROGRAM + " " +
-                                                      self.COMMAND_TO_UNZIP + " " +
-                                                      object_name_with_zip,
-                                                      cwd=path_tmp_dir,
-                                                      stdout=subprocess.DEVNULL)
+                        args = [self.NAME_OF_ZIP_PROGRAM, self.COMMAND_TO_UNZIP, object_name_with_zip]
+                        completed_process = subprocess.run(args,
+                                                           cwd=path_tmp_dir,
+                                                           stdout=subprocess.DEVNULL)
 
-                        self.assertEqual(0, return_code, 'return code of unzip not zero')
+                        self.assertEqual(0, completed_process.returncode, 'return code of unzip not zero')
 
                         path_to_unzipped_object = Path(path_tmp_dir + "/" + object_name).__str__()
 
@@ -282,6 +281,76 @@ class Test7Zip(TestZip):
 
                         self.assertEqual(contents_cwd_before, contents_cwd_after,
                                          'contents before zip and unzip not same than after')
+        finally:
+            self.delete_tmp_folder()
+
+    def test_should_zip_unzip_file_with_password(self):
+        self.create_tmp_folder()
+        try:
+            path_ = Path(self.FILE_TO_ZIP).absolute()
+            path_tmp_dir = Path(Path(".").absolute().__str__() + "/" + self.TMP_DIR_NAME).__str__()
+
+            object_name = path_.parts[-1]
+            object_name_with_zip = object_name + "." + self.EXTENSION_OF_ZIPPED_FILE
+
+            password = "DSfSDFfsdfdsfdfe32342"
+
+            completed_process = subprocess.run([self.NAME_OF_ZIP_PROGRAM,
+                                                self.COMMAND_TO_ZIP,
+                                                self.ZIP_ADDITIONAL_SWITCHES,
+                                                "-p" + password,
+                                                object_name_with_zip,
+                                                path_.__str__()],
+                                               cwd=path_tmp_dir,
+                                               stdout=subprocess.DEVNULL)
+
+            self.assertEqual(0, completed_process.returncode, 'return code of zip not zero')
+
+            with self.subTest(msg="test unzip file: " + object_name_with_zip + " with password: " + password):
+                completed_process = subprocess.run([self.NAME_OF_ZIP_PROGRAM,
+                                                    "-p" + password,
+                                                    self.COMMAND_TO_UNZIP,
+                                                    object_name_with_zip],
+                                                   cwd=path_tmp_dir,
+                                                   stdout=subprocess.DEVNULL)
+
+                self.assertEqual(0, completed_process.returncode, 'return code of unzip not zero')
+        finally:
+            self.delete_tmp_folder()
+
+    def test_should_not_unzip_file_with_incorrect_password(self):
+        self.create_tmp_folder()
+        try:
+            path_ = Path(self.FILE_TO_ZIP).absolute()
+            path_tmp_dir = Path(Path(".").absolute().__str__() + "/" + self.TMP_DIR_NAME).__str__()
+
+            object_name = path_.parts[-1]
+            object_name_with_zip = object_name + "." + self.EXTENSION_OF_ZIPPED_FILE
+
+            password = "DSfSDFfsdfdsfdfe32342"
+            incorrect_password = password + "0"
+
+            completed_process = subprocess.run([self.NAME_OF_ZIP_PROGRAM,
+                                                self.COMMAND_TO_ZIP,
+                                                self.ZIP_ADDITIONAL_SWITCHES,
+                                                "-p" + password,
+                                                object_name_with_zip,
+                                                path_.__str__()],
+                                               cwd=path_tmp_dir,
+                                               stdout=subprocess.DEVNULL)
+
+            self.assertEqual(0, completed_process.returncode, 'return code of zip not zero')
+
+            with self.subTest(msg="test unzip file: " + object_name_with_zip + " with password: " + incorrect_password):
+                completed_process = subprocess.run([self.NAME_OF_ZIP_PROGRAM,
+                                                    "-p" + incorrect_password,
+                                                    self.COMMAND_TO_UNZIP,
+                                                    object_name_with_zip],
+                                                   cwd=path_tmp_dir,
+                                                   stdout=subprocess.DEVNULL,
+                                                   stderr=subprocess.DEVNULL)
+
+                self.assertNotEqual(0, completed_process.returncode, 'return code of incorrect unzip zero')
         finally:
             self.delete_tmp_folder()
 
