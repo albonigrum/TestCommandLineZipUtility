@@ -6,8 +6,8 @@ import filecmp
 import shutil
 
 
-def size_of_directory(directory):
-    path = Path(directory)
+def size_of_directory(directory_path):
+    path = Path(directory_path)
     return sum(f.stat().st_size for f in path.glob('**/*') if f.is_file())
 
 
@@ -17,6 +17,8 @@ class TestZip(unittest.TestCase):
     EXTENSION_OF_ZIPPED_FILE = "zip"
     FILE_TO_ZIP = "resources/skynet-master/monitor_envoy_stats.py"
     DIR_TO_ZIP = "resources/skynet-master"
+    ZIP_ARCHIVE = "resources/skynet-master.zip"
+    DIR_WITH_DELETED_FILES = "resources/skynet-master_with_deleted_files"
     TMP_DIR_NAME = "tmp"
 
     @staticmethod
@@ -195,12 +197,55 @@ class TestZip(unittest.TestCase):
         finally:
             self.delete_tmp_folder()
 
+    def test_should_delete_file_from_zip(self):
+        self.create_tmp_folder()
+        try:
+            path_ = Path(self.ZIP_ARCHIVE).absolute()
+            self.assertTrue(path_.is_file(), 'there is not file ' + self.ZIP_ARCHIVE)
+
+            zip_archive_name = path_.parts[-1]
+
+            self.create_tmp_folder()
+
+            path_tmp_dir = Path("./" + self.TMP_DIR_NAME).__str__()
+
+            path_zip_archive_in_tmp = Path(path_tmp_dir + "/" + zip_archive_name)
+
+            shutil.copyfile(path_.__str__(), path_zip_archive_in_tmp.__str__())
+
+            completed_process = subprocess.run([self.NAME_OF_ZIP_PROGRAM,
+                                                "-d", zip_archive_name,
+                                                "*.py", Path("skynet-master/README.md").__str__()],
+                                               cwd=path_tmp_dir,
+                                               stdout=subprocess.DEVNULL,
+                                               stderr=subprocess.DEVNULL)
+
+            self.assertEqual(0, completed_process.returncode, 'return code of deleting files from zip not zero')
+
+            completed_process = subprocess.run([self.NAME_OF_UNZIP_PROGRAM,
+                                                zip_archive_name],
+                                               cwd=path_tmp_dir,
+                                               stdout=subprocess.DEVNULL,
+                                               stderr=subprocess.DEVNULL)
+
+            self.assertEqual(0, completed_process.returncode,
+                             'return code of unzip zip file with deleted files not zero')
+
+            # Удаляем zip'ник чтобы можно было сравнить содержимое директорий
+            path_zip_archive_in_tmp.unlink()
+
+            self.assertEqual([], filecmp.dircmp(self.DIR_WITH_DELETED_FILES, path_tmp_dir).diff_files,
+                             'expected folder and unzipped folder after deleting files not equal')
+        finally:
+            self.delete_tmp_folder()
+
 
 class Test7Zip(TestZip):
     NAME_OF_ZIP_PROGRAM = "7z"
-    COMMAND_TO_ZIP = "a"
+    COMMAND_TO_ADD_FILES_TO_ARCHIVE = "a"
     ZIP_ADDITIONAL_SWITCHES = "-tzip"
     COMMAND_TO_UNZIP = "x"
+    COMMAND_TO_DELETE_FILES_FROM_ARCHIVE = "d"
 
     # path_..._ (ends with _) it is some Path object
     # path_... (ends not with _) it is string path
@@ -234,7 +279,7 @@ class Test7Zip(TestZip):
                     object_name = path_.parts[-1]
                     object_name_with_zip = object_name + "." + self.EXTENSION_OF_ZIPPED_FILE
 
-                    args = [self.NAME_OF_ZIP_PROGRAM, self.COMMAND_TO_ZIP,
+                    args = [self.NAME_OF_ZIP_PROGRAM, self.COMMAND_TO_ADD_FILES_TO_ARCHIVE,
                             self.ZIP_ADDITIONAL_SWITCHES, object_name_with_zip]
                     if is_absolute_path:
                         args.append(path_to_object)
@@ -296,7 +341,7 @@ class Test7Zip(TestZip):
             password = "DSfSDFfsdfdsfdfe32342"
 
             completed_process = subprocess.run([self.NAME_OF_ZIP_PROGRAM,
-                                                self.COMMAND_TO_ZIP,
+                                                self.COMMAND_TO_ADD_FILES_TO_ARCHIVE,
                                                 self.ZIP_ADDITIONAL_SWITCHES,
                                                 "-p" + password,
                                                 object_name_with_zip,
@@ -331,7 +376,7 @@ class Test7Zip(TestZip):
             incorrect_password = password + "0"
 
             completed_process = subprocess.run([self.NAME_OF_ZIP_PROGRAM,
-                                                self.COMMAND_TO_ZIP,
+                                                self.COMMAND_TO_ADD_FILES_TO_ARCHIVE,
                                                 self.ZIP_ADDITIONAL_SWITCHES,
                                                 "-p" + password,
                                                 object_name_with_zip,
@@ -354,6 +399,50 @@ class Test7Zip(TestZip):
         finally:
             self.delete_tmp_folder()
 
+    def test_should_delete_file_from_zip(self):
+        self.create_tmp_folder()
+        try:
+            path_ = Path(self.ZIP_ARCHIVE).absolute()
+            self.assertTrue(path_.is_file(), 'there is not file ' + self.ZIP_ARCHIVE)
+
+            zip_archive_name = path_.parts[-1]
+
+            self.create_tmp_folder()
+
+            path_tmp_dir = Path("./" + self.TMP_DIR_NAME).__str__()
+
+            path_zip_archive_in_tmp = Path(path_tmp_dir + "/" + zip_archive_name)
+
+            shutil.copyfile(path_.__str__(), path_zip_archive_in_tmp.__str__())
+
+            completed_process = subprocess.run([self.NAME_OF_ZIP_PROGRAM,
+                                                self.COMMAND_TO_DELETE_FILES_FROM_ARCHIVE,
+                                                zip_archive_name,
+                                                "*.py", Path("skynet-master/README.md").__str__()],
+                                               cwd=path_tmp_dir,
+                                               stdout=subprocess.DEVNULL,
+                                               stderr=subprocess.DEVNULL)
+
+            self.assertEqual(0, completed_process.returncode, 'return code of deleting files from zip not zero')
+
+            completed_process = subprocess.run([self.NAME_OF_ZIP_PROGRAM,
+                                                self.COMMAND_TO_UNZIP,
+                                                zip_archive_name],
+                                               cwd=path_tmp_dir,
+                                               stdout=subprocess.DEVNULL,
+                                               stderr=subprocess.DEVNULL)
+
+            self.assertEqual(0, completed_process.returncode,
+                             'return code of unzip zip file with deleted files not zero')
+
+            # Удаляем zip'ник чтобы можно было сравнить содержимое директорий
+            path_zip_archive_in_tmp.unlink()
+
+            self.assertEqual([], filecmp.dircmp(self.DIR_WITH_DELETED_FILES, path_tmp_dir).diff_files,
+                             'expected folder and unzipped folder after deleting files not equal')
+        finally:
+            self.delete_tmp_folder()
+
 
 if __name__ == "__main__":
 
@@ -364,4 +453,4 @@ if __name__ == "__main__":
         TestToTest = TestZip
 
     suite = unittest.defaultTestLoader.loadTestsFromTestCase(TestToTest)
-    unittest.TextTestRunner().run(suite)
+    unittest.TextTestRunner(verbosity=2).run(suite)
