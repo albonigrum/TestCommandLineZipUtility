@@ -18,6 +18,7 @@ class TestZip(unittest.TestCase):
     FILE_TO_ZIP = "resources/skynet-master/monitor_envoy_stats.py"
     DIR_TO_ZIP = "resources/skynet-master"
     ZIP_ARCHIVE = "resources/skynet-master.zip"
+    ANOTHER_ZIP_ARCHIVE = "resources/skynet-master_win_rar.zip"
     DIR_WITH_DELETED_FILES = "resources/skynet-master_with_deleted_files"
     TMP_DIR_NAME = "tmp"
 
@@ -135,7 +136,7 @@ class TestZip(unittest.TestCase):
         self.create_tmp_folder()
         try:
             path_ = Path(self.FILE_TO_ZIP).absolute()
-            path_tmp_dir = Path(Path(".").absolute().__str__() + "/" + self.TMP_DIR_NAME).__str__()
+            path_tmp_dir = Path("./" + self.TMP_DIR_NAME).__str__()
 
             object_name = path_.parts[-1]
             object_name_with_zip = object_name + "." + self.EXTENSION_OF_ZIPPED_FILE
@@ -167,7 +168,7 @@ class TestZip(unittest.TestCase):
         self.create_tmp_folder()
         try:
             path_ = Path(self.FILE_TO_ZIP).absolute()
-            path_tmp_dir = Path(Path(".").absolute().__str__() + "/" + self.TMP_DIR_NAME).__str__()
+            path_tmp_dir = Path("./" + self.TMP_DIR_NAME).__str__()
 
             object_name = path_.parts[-1]
             object_name_with_zip = object_name + "." + self.EXTENSION_OF_ZIPPED_FILE
@@ -235,6 +236,33 @@ class TestZip(unittest.TestCase):
             path_zip_archive_in_tmp.unlink()
 
             self.assertEqual([], filecmp.dircmp(self.DIR_WITH_DELETED_FILES, path_tmp_dir).diff_files,
+                             'expected folder and unzipped folder after deleting files not equal')
+        finally:
+            self.delete_tmp_folder()
+
+    def test_should_unzip_another_zip(self):
+        self.create_tmp_folder()
+        try:
+            path_ = Path(self.ANOTHER_ZIP_ARCHIVE).absolute()
+            path_tmp_dir = Path("./" + self.TMP_DIR_NAME).__str__()
+
+            another_zip = path_.parts[-1]
+
+            path_zip_archive_in_tmp = Path(path_tmp_dir + "/" + another_zip)
+
+            shutil.copyfile(path_.__str__(), path_zip_archive_in_tmp.__str__())
+
+            completed_process = subprocess.run([self.NAME_OF_UNZIP_PROGRAM,
+                                                another_zip],
+                                               cwd=path_tmp_dir,
+                                               stdout=subprocess.DEVNULL)
+
+            self.assertEqual(0, completed_process.returncode, 'return code of unzip not zero')
+
+            # Удаляем zip'ник чтобы можно было сравнить содержимое директорий
+            path_zip_archive_in_tmp.unlink()
+
+            self.assertEqual([], filecmp.dircmp(self.DIR_TO_ZIP, path_tmp_dir).diff_files,
                              'expected folder and unzipped folder after deleting files not equal')
         finally:
             self.delete_tmp_folder()
@@ -443,6 +471,34 @@ class Test7Zip(TestZip):
         finally:
             self.delete_tmp_folder()
 
+    def test_should_unzip_another_zip(self):
+        self.create_tmp_folder()
+        try:
+            path_ = Path(self.ANOTHER_ZIP_ARCHIVE).absolute()
+            path_tmp_dir = Path("./" + self.TMP_DIR_NAME).__str__()
+
+            another_zip = path_.parts[-1]
+
+            path_zip_archive_in_tmp = Path(path_tmp_dir + "/" + another_zip)
+
+            shutil.copyfile(path_.__str__(), path_zip_archive_in_tmp.__str__())
+
+            completed_process = subprocess.run([self.NAME_OF_ZIP_PROGRAM,
+                                                self.COMMAND_TO_UNZIP,
+                                                another_zip],
+                                               cwd=path_tmp_dir,
+                                               stdout=subprocess.DEVNULL)
+
+            self.assertEqual(0, completed_process.returncode, 'return code of unzip not zero')
+
+            # Удаляем zip'ник чтобы можно было сравнить содержимое директорий
+            path_zip_archive_in_tmp.unlink()
+
+            self.assertEqual([], filecmp.dircmp(self.DIR_TO_ZIP, path_tmp_dir).diff_files,
+                             'expected folder and unzipped folder after deleting files not equal')
+        finally:
+            self.delete_tmp_folder()
+
 
 if __name__ == "__main__":
 
@@ -453,4 +509,4 @@ if __name__ == "__main__":
         TestToTest = TestZip
 
     suite = unittest.defaultTestLoader.loadTestsFromTestCase(TestToTest)
-    unittest.TextTestRunner(verbosity=2).run(suite)
+    unittest.TextTestRunner(verbosity=3).run(suite)
