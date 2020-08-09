@@ -22,18 +22,18 @@ class TestZip(unittest.TestCase):
     DIR_WITH_DELETED_FILES = "resources/skynet-master_with_deleted_files"
     TMP_DIR_NAME = "tmp"
 
-    @staticmethod
-    def delete_tmp_folder():
-        try:
-            shutil.rmtree(Path("./" + TestZip.TMP_DIR_NAME).__str__())
-        except FileNotFoundError:
-            pass
+    class TmpFolderHandler:
+        def __enter__(self):
+            tmp_dir_ = Path("./" + TestZip.TMP_DIR_NAME)
+            if not tmp_dir_.is_dir():
+                tmp_dir_.mkdir()
+            return tmp_dir_
 
-    @staticmethod
-    def create_tmp_folder():
-        tmp_dir_obj = Path("./" + TestZip.TMP_DIR_NAME)
-        if not tmp_dir_obj.is_dir():
-            tmp_dir_obj.mkdir()
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            try:
+                shutil.rmtree(Path("./" + TestZip.TMP_DIR_NAME).__str__())
+            except FileNotFoundError:
+                pass
 
     def test_should_open(self):
         completed_process = subprocess.run([self.NAME_OF_ZIP_PROGRAM],
@@ -53,25 +53,23 @@ class TestZip(unittest.TestCase):
     # path_..._ (ends with _) it is some Path object
     # path_... (ends not with _) it is string path
     def test_should_zip_unzip_file_by_path(self):
-        try:
-            path_objects_to_zip = [
-                Path(self.FILE_TO_ZIP).__str__(),
-                Path(self.DIR_TO_ZIP).__str__(),
-                Path(self.FILE_TO_ZIP).absolute().__str__(),
-                Path(self.DIR_TO_ZIP).absolute().__str__()
-            ]
+        path_objects_to_zip = [
+            Path(self.FILE_TO_ZIP).__str__(),
+            Path(self.DIR_TO_ZIP).__str__(),
+            Path(self.FILE_TO_ZIP).absolute().__str__(),
+            Path(self.DIR_TO_ZIP).absolute().__str__()
+        ]
 
-            for path_to_object in path_objects_to_zip:
-                with self.subTest(msg="test zip by path to object: " + path_to_object):
-                    cwd_ = Path(".")
-                    contents_cwd_before = []
-                    for c in cwd_.iterdir():
-                        contents_cwd_before.append(c.__str__())
+        for path_to_object in path_objects_to_zip:
+            with self.subTest(msg="test zip by path to object: " + path_to_object):
+                cwd_ = Path(".")
+                contents_cwd_before = []
+                for c in cwd_.iterdir():
+                    contents_cwd_before.append(c.__str__())
 
-                    self.create_tmp_folder()
-
+                with self.TmpFolderHandler() as path_tmp_dir_:
                     path_ = Path(path_to_object)
-                    path_tmp_dir = Path(cwd_.__str__() + "/" + self.TMP_DIR_NAME).__str__()
+                    path_tmp_dir = path_tmp_dir_.__str__()
 
                     is_file = path_.is_file()
                     is_absolute_path = path_.is_absolute()
@@ -121,22 +119,17 @@ class TestZip(unittest.TestCase):
                             self.assertEqual([], filecmp.dircmp(path_to_object, path_to_unzipped_object).diff_files,
                                              'original folder and unzipped folder not equal')
 
-                        self.delete_tmp_folder()
+                contents_cwd_after = []
+                for c in cwd_.iterdir():
+                    contents_cwd_after.append(c.__str__())
 
-                        contents_cwd_after = []
-                        for c in cwd_.iterdir():
-                            contents_cwd_after.append(c.__str__())
-
-                        self.assertEqual(contents_cwd_before, contents_cwd_after,
-                                         'contents before zip and unzip not same than after')
-        finally:
-            self.delete_tmp_folder()
+                self.assertEqual(contents_cwd_before, contents_cwd_after,
+                                 'contents before zip and unzip not same than after')
 
     def test_should_zip_unzip_file_with_password(self):
-        self.create_tmp_folder()
-        try:
+        with self.TmpFolderHandler() as path_tmp_dir_:
             path_ = Path(self.FILE_TO_ZIP).absolute()
-            path_tmp_dir = Path("./" + self.TMP_DIR_NAME).__str__()
+            path_tmp_dir = path_tmp_dir_.__str__()
 
             object_name = path_.parts[-1]
             object_name_with_zip = object_name + "." + self.EXTENSION_OF_ZIPPED_FILE
@@ -161,14 +154,11 @@ class TestZip(unittest.TestCase):
                                                    stdout=subprocess.DEVNULL)
 
                 self.assertEqual(0, completed_process.returncode, 'return code of unzip not zero')
-        finally:
-            self.delete_tmp_folder()
 
     def test_should_not_unzip_file_with_incorrect_password(self):
-        self.create_tmp_folder()
-        try:
+        with self.TmpFolderHandler() as path_tmp_dir_:
             path_ = Path(self.FILE_TO_ZIP).absolute()
-            path_tmp_dir = Path("./" + self.TMP_DIR_NAME).__str__()
+            path_tmp_dir = path_tmp_dir_.__str__()
 
             object_name = path_.parts[-1]
             object_name_with_zip = object_name + "." + self.EXTENSION_OF_ZIPPED_FILE
@@ -195,20 +185,15 @@ class TestZip(unittest.TestCase):
                                                    stderr=subprocess.DEVNULL)
 
                 self.assertNotEqual(0, completed_process.returncode, 'return code of incorrect unzip zero')
-        finally:
-            self.delete_tmp_folder()
 
-    def test_should_delete_file_from_zip(self):
-        self.create_tmp_folder()
-        try:
+    def test_should_delete_file_from_zip_archive(self):
+        with self.TmpFolderHandler() as path_tmp_dir_:
             path_ = Path(self.ZIP_ARCHIVE).absolute()
             self.assertTrue(path_.is_file(), 'there is not file ' + self.ZIP_ARCHIVE)
 
             zip_archive_name = path_.parts[-1]
 
-            self.create_tmp_folder()
-
-            path_tmp_dir = Path("./" + self.TMP_DIR_NAME).__str__()
+            path_tmp_dir = path_tmp_dir_.__str__()
 
             path_zip_archive_in_tmp = Path(path_tmp_dir + "/" + zip_archive_name)
 
@@ -237,14 +222,12 @@ class TestZip(unittest.TestCase):
 
             self.assertEqual([], filecmp.dircmp(self.DIR_WITH_DELETED_FILES, path_tmp_dir).diff_files,
                              'expected folder and unzipped folder after deleting files not equal')
-        finally:
-            self.delete_tmp_folder()
 
+    # should unzip archive have made by another program
     def test_should_unzip_another_zip(self):
-        self.create_tmp_folder()
-        try:
+        with self.TmpFolderHandler() as path_tmp_dir_:
             path_ = Path(self.ANOTHER_ZIP_ARCHIVE).absolute()
-            path_tmp_dir = Path("./" + self.TMP_DIR_NAME).__str__()
+            path_tmp_dir = path_tmp_dir_.__str__()
 
             another_zip = path_.parts[-1]
 
@@ -264,8 +247,6 @@ class TestZip(unittest.TestCase):
 
             self.assertEqual([], filecmp.dircmp(self.DIR_TO_ZIP, path_tmp_dir).diff_files,
                              'expected folder and unzipped folder after deleting files not equal')
-        finally:
-            self.delete_tmp_folder()
 
 
 class Test7Zip(TestZip):
@@ -278,25 +259,23 @@ class Test7Zip(TestZip):
     # path_..._ (ends with _) it is some Path object
     # path_... (ends not with _) it is string path
     def test_should_zip_unzip_file_by_path(self):
-        try:
-            path_objects_to_zip = [
-                Path(self.FILE_TO_ZIP).__str__(),
-                Path(self.DIR_TO_ZIP).__str__(),
-                Path(self.FILE_TO_ZIP).absolute().__str__(),
-                Path(self.DIR_TO_ZIP).absolute().__str__()
-            ]
+        path_objects_to_zip = [
+            Path(self.FILE_TO_ZIP).__str__(),
+            Path(self.DIR_TO_ZIP).__str__(),
+            Path(self.FILE_TO_ZIP).absolute().__str__(),
+            Path(self.DIR_TO_ZIP).absolute().__str__()
+        ]
 
-            for path_to_object in path_objects_to_zip:
-                with self.subTest(msg="test zip by path to object: " + path_to_object):
-                    cwd_ = Path(".")
-                    contents_cwd_before = []
-                    for c in cwd_.iterdir():
-                        contents_cwd_before.append(c.__str__())
+        for path_to_object in path_objects_to_zip:
+            with self.subTest(msg="test zip by path to object: " + path_to_object):
+                cwd_ = Path(".")
+                contents_cwd_before = []
+                for c in cwd_.iterdir():
+                    contents_cwd_before.append(c.__str__())
 
-                    self.create_tmp_folder()
-
+                with self.TmpFolderHandler() as path_tmp_dir_:
                     path_ = Path(path_to_object)
-                    path_tmp_dir = Path(cwd_.__str__() + "/" + self.TMP_DIR_NAME).__str__()
+                    path_tmp_dir = path_tmp_dir_.__str__()
 
                     is_file = path_.is_file()
                     is_absolute_path = path_.is_absolute()
@@ -346,22 +325,17 @@ class Test7Zip(TestZip):
                             self.assertEqual([], filecmp.dircmp(path_to_object, path_to_unzipped_object).diff_files,
                                              'original folder and unzipped folder not equal')
 
-                        self.delete_tmp_folder()
+                contents_cwd_after = []
+                for c in cwd_.iterdir():
+                    contents_cwd_after.append(c.__str__())
 
-                        contents_cwd_after = []
-                        for c in cwd_.iterdir():
-                            contents_cwd_after.append(c.__str__())
-
-                        self.assertEqual(contents_cwd_before, contents_cwd_after,
-                                         'contents before zip and unzip not same than after')
-        finally:
-            self.delete_tmp_folder()
+                self.assertEqual(contents_cwd_before, contents_cwd_after,
+                                 'contents before zip and unzip not same than after')
 
     def test_should_zip_unzip_file_with_password(self):
-        self.create_tmp_folder()
-        try:
+        with self.TmpFolderHandler() as path_tmp_dir_:
             path_ = Path(self.FILE_TO_ZIP).absolute()
-            path_tmp_dir = Path(Path(".").absolute().__str__() + "/" + self.TMP_DIR_NAME).__str__()
+            path_tmp_dir = path_tmp_dir_.__str__()
 
             object_name = path_.parts[-1]
             object_name_with_zip = object_name + "." + self.EXTENSION_OF_ZIPPED_FILE
@@ -388,14 +362,11 @@ class Test7Zip(TestZip):
                                                    stdout=subprocess.DEVNULL)
 
                 self.assertEqual(0, completed_process.returncode, 'return code of unzip not zero')
-        finally:
-            self.delete_tmp_folder()
 
     def test_should_not_unzip_file_with_incorrect_password(self):
-        self.create_tmp_folder()
-        try:
+        with self.TmpFolderHandler() as path_tmp_dir_:
             path_ = Path(self.FILE_TO_ZIP).absolute()
-            path_tmp_dir = Path(Path(".").absolute().__str__() + "/" + self.TMP_DIR_NAME).__str__()
+            path_tmp_dir = path_tmp_dir_.__str__()
 
             object_name = path_.parts[-1]
             object_name_with_zip = object_name + "." + self.EXTENSION_OF_ZIPPED_FILE
@@ -424,20 +395,15 @@ class Test7Zip(TestZip):
                                                    stderr=subprocess.DEVNULL)
 
                 self.assertNotEqual(0, completed_process.returncode, 'return code of incorrect unzip zero')
-        finally:
-            self.delete_tmp_folder()
 
-    def test_should_delete_file_from_zip(self):
-        self.create_tmp_folder()
-        try:
+    def test_should_delete_file_from_zip_archive(self):
+        with self.TmpFolderHandler() as path_tmp_dir_:
             path_ = Path(self.ZIP_ARCHIVE).absolute()
             self.assertTrue(path_.is_file(), 'there is not file ' + self.ZIP_ARCHIVE)
 
             zip_archive_name = path_.parts[-1]
 
-            self.create_tmp_folder()
-
-            path_tmp_dir = Path("./" + self.TMP_DIR_NAME).__str__()
+            path_tmp_dir = path_tmp_dir_.__str__()
 
             path_zip_archive_in_tmp = Path(path_tmp_dir + "/" + zip_archive_name)
 
@@ -468,14 +434,12 @@ class Test7Zip(TestZip):
 
             self.assertEqual([], filecmp.dircmp(self.DIR_WITH_DELETED_FILES, path_tmp_dir).diff_files,
                              'expected folder and unzipped folder after deleting files not equal')
-        finally:
-            self.delete_tmp_folder()
 
+    # should unzip archive have made by another program
     def test_should_unzip_another_zip(self):
-        self.create_tmp_folder()
-        try:
+        with self.TmpFolderHandler() as path_tmp_dir_:
             path_ = Path(self.ANOTHER_ZIP_ARCHIVE).absolute()
-            path_tmp_dir = Path("./" + self.TMP_DIR_NAME).__str__()
+            path_tmp_dir = path_tmp_dir_.__str__()
 
             another_zip = path_.parts[-1]
 
@@ -496,8 +460,6 @@ class Test7Zip(TestZip):
 
             self.assertEqual([], filecmp.dircmp(self.DIR_TO_ZIP, path_tmp_dir).diff_files,
                              'expected folder and unzipped folder after deleting files not equal')
-        finally:
-            self.delete_tmp_folder()
 
 
 if __name__ == "__main__":
