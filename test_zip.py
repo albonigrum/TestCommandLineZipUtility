@@ -52,7 +52,7 @@ class TestZip(unittest.TestCase):
 
     # path_..._ (ends with _) it is some Path object
     # path_... (ends not with _) it is string path
-    def test_should_zip_unzip_file_by_path(self):
+    def test_should_zip_unzip_object_by_path(self):
         path_objects_to_zip = [
             Path(self.FILE_TO_ZIP).__str__(),
             Path(self.DIR_TO_ZIP).__str__(),
@@ -258,7 +258,7 @@ class Test7Zip(TestZip):
 
     # path_..._ (ends with _) it is some Path object
     # path_... (ends not with _) it is string path
-    def test_should_zip_unzip_file_by_path(self):
+    def test_should_zip_unzip_object_by_path(self):
         path_objects_to_zip = [
             Path(self.FILE_TO_ZIP).__str__(),
             Path(self.DIR_TO_ZIP).__str__(),
@@ -471,4 +471,4 @@ if __name__ == "__main__":
         TestToTest = TestZip
 
     suite = unittest.defaultTestLoader.loadTestsFromTestCase(TestToTest)
-    unittest.TextTestRunner(verbosity=3).run(suite)
+    unittest.TextTestRunner(verbosity=2).run(suite)
